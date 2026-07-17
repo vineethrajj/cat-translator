@@ -1,43 +1,66 @@
 package com.vineethraj.cattranslator.ui.theme
 
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
 
 private val LightColors = lightColorScheme(
-    primary = CatOrange,
-    secondary = CatOrangeDark,
-    background = CatCream,
+    primary = BrandPrimaryLight,
+    onPrimary = BrandOnPrimaryLight,
+    primaryContainer = BrandPrimaryContainerLight,
+    onPrimaryContainer = BrandOnPrimaryContainerLight,
+    secondary = BrandSecondaryLight,
+    onSecondary = BrandOnSecondaryLight,
+    tertiary = BrandTertiaryLight,
+    onTertiary = BrandOnTertiaryLight,
+    background = BrandBackgroundLight,
+    onBackground = BrandOnBackgroundLight,
+    surface = BrandSurfaceLight,
+    onSurface = BrandOnSurfaceLight,
+    surfaceVariant = BrandSurfaceVariantLight,
+    onSurfaceVariant = BrandOnSurfaceVariantLight,
+    outline = BrandOutlineLight,
+    error = BrandErrorLight,
+    onError = BrandOnErrorLight,
 )
 
 private val DarkColors = darkColorScheme(
-    primary = CatOrange,
-    secondary = CatOrangeDark,
+    primary = BrandPrimaryDark,
+    onPrimary = BrandOnPrimaryDark,
+    primaryContainer = BrandPrimaryContainerDark,
+    onPrimaryContainer = BrandOnPrimaryContainerDark,
+    secondary = BrandSecondaryDark,
+    onSecondary = BrandOnSecondaryDark,
+    tertiary = BrandTertiaryDark,
+    onTertiary = BrandOnTertiaryDark,
+    background = BrandBackgroundDark,
+    onBackground = BrandOnBackgroundDark,
+    surface = BrandSurfaceDark,
+    onSurface = BrandOnSurfaceDark,
+    surfaceVariant = BrandSurfaceVariantDark,
+    onSurfaceVariant = BrandOnSurfaceVariantDark,
+    outline = BrandOutlineDark,
+    error = BrandErrorDark,
+    onError = BrandOnErrorDark,
 )
 
+/**
+ * Deliberately does not opt into Android 12+ dynamic (wallpaper-derived) color. This app has its
+ * own brand palette and dynamic color would make it look different - and inconsistently so - on
+ * every device.
+ */
 @Composable
 fun CatTranslatorTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColors
-        else -> LightColors
-    }
+    val colorScheme = if (darkTheme) DarkColors else LightColors
 
     MaterialTheme(
         colorScheme = colorScheme,
+        typography = CatTranslatorTypography,
         content = content,
     )
 }

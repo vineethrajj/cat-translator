@@ -80,6 +80,10 @@ class MeowSynthesizer {
         CatIntent.SCOLD -> listOf(
             Note(durationMs = 600, startHz = 180f, endHz = 150f, vibratoHz = 14f, vibratoDepth = 0.15f, noiseAmount = 0.35f),
         )
+        CatIntent.DISMISS -> listOf(
+            Note(durationMs = 160, startHz = 500f, endHz = 350f, vibratoHz = 8f, vibratoDepth = 0.05f, noiseAmount = 0.1f),
+            Note(durationMs = 160, startHz = 450f, endHz = 300f, vibratoHz = 8f, vibratoDepth = 0.05f, noiseAmount = 0.1f),
+        )
         CatIntent.PLAY -> listOf(
             Note(durationMs = 140, startHz = 700f, endHz = 900f, vibratoHz = 12f, vibratoDepth = 0.04f),
             Note(durationMs = 140, startHz = 750f, endHz = 950f, vibratoHz = 12f, vibratoDepth = 0.04f),

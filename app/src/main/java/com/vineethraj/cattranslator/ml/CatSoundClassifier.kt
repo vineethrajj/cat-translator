@@ -10,6 +10,9 @@ import com.google.mediapipe.tasks.core.BaseOptions
 /** A single AudioSet label (e.g. "Meow", "Purr", "Growling") with its confidence score. */
 data class SoundLabel(val name: String, val score: Float)
 
+/** Thrown when the on-device classifier fails to load or fails to process a clip. */
+class SoundClassificationException(message: String, cause: Throwable? = null) : Exception(message, cause)
+
 /**
  * Wraps MediaPipe's on-device Audio Classifier task running Google's pretrained YAMNet model
  * (bundled at `assets/yamnet.tflite`) to identify what kind of sound was recorded, out of
@@ -18,26 +21,38 @@ data class SoundLabel(val name: String, val score: Float)
  */
 class CatSoundClassifier(context: Context) : AutoCloseable {
 
-    private val classifier: AudioClassifier = AudioClassifier.createFromOptions(
-        context.applicationContext,
-        AudioClassifierOptions.builder()
-            .setBaseOptions(BaseOptions.builder().setModelAssetPath(MODEL_ASSET_PATH).build())
-            .setRunningMode(RunningMode.AUDIO_CLIPS)
-            .setMaxResults(MAX_RESULTS)
-            .setScoreThreshold(MIN_SCORE)
-            .build(),
-    )
+    private val classifier: AudioClassifier = try {
+        AudioClassifier.createFromOptions(
+            context.applicationContext,
+            AudioClassifierOptions.builder()
+                .setBaseOptions(BaseOptions.builder().setModelAssetPath(MODEL_ASSET_PATH).build())
+                .setRunningMode(RunningMode.AUDIO_CLIPS)
+                .setMaxResults(MAX_RESULTS)
+                .setScoreThreshold(MIN_SCORE)
+                .build(),
+        )
+    } catch (e: Exception) {
+        throw SoundClassificationException("Could not load the sound classifier model.", e)
+    }
 
     /** Classifies [samples] (mono PCM at [sampleRateHz]), returning labels sorted by descending score. */
     fun classify(samples: FloatArray, sampleRateHz: Int): List<SoundLabel> {
-        val format = AudioData.AudioDataFormat.builder()
-            .setNumOfChannels(1)
-            .setSampleRate(sampleRateHz.toFloat())
-            .build()
-        val audioData = AudioData.create(format, samples.size)
-        audioData.load(samples)
+        val minSamples = sampleRateHz / 4
+        if (samples.size < minSamples) {
+            throw SoundClassificationException("Not enough audio captured to classify.")
+        }
 
-        val result = classifier.classify(audioData)
+        val result = try {
+            val format = AudioData.AudioDataFormat.builder()
+                .setNumOfChannels(1)
+                .setSampleRate(sampleRateHz.toFloat())
+                .build()
+            val audioData = AudioData.create(format, samples.size)
+            audioData.load(samples)
+            classifier.classify(audioData)
+        } catch (e: Exception) {
+            throw SoundClassificationException("The sound classifier failed to process this clip.", e)
+        }
 
         // YAMNet classifies the clip in ~1s windows, so merge windows by each label's best score.
         val bestScoreByLabel = HashMap<String, Float>()
@@ -57,7 +72,7 @@ class CatSoundClassifier(context: Context) : AutoCloseable {
     }
 
     override fun close() {
-        classifier.close()
+        runCatching { classifier.close() }
     }
 
     private companion object {

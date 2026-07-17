@@ -29,27 +29,48 @@ class HumanToCatViewModel(application: Application) : AndroidViewModel(applicati
 
     fun startListening() {
         _uiState.value = HumanToCatUiState.Listening
-        speechToText.startListening(
-            onResult = { text ->
-                val intent = CatIntentMapper.map(text)
-                _uiState.value = HumanToCatUiState.Result(text, intent)
-                synthesizer.play(intent)
-            },
-            onError = { message ->
-                _uiState.value = HumanToCatUiState.Error(message)
-            },
-        )
+        try {
+            speechToText.startListening(
+                onResult = { text ->
+                    val intent = CatIntentMapper.map(text)
+                    _uiState.value = HumanToCatUiState.Result(text, intent)
+                    playSoundSafely(intent)
+                },
+                onError = { message ->
+                    _uiState.value = HumanToCatUiState.Error(message)
+                },
+            )
+        } catch (e: SecurityException) {
+            _uiState.value = HumanToCatUiState.Error(
+                "Microphone permission was denied. Grant it in Settings and try again.",
+            )
+        } catch (e: Exception) {
+            _uiState.value = HumanToCatUiState.Error(
+                e.message ?: "Could not start listening. Please try again.",
+            )
+        }
+    }
+
+    /** Bypasses speech recognition entirely - triggered by a quick-phrase button. */
+    fun selectQuickPhrase(label: String, intent: CatIntent) {
+        _uiState.value = HumanToCatUiState.Result(label, intent)
+        playSoundSafely(intent)
     }
 
     fun replaySound() {
         val state = _uiState.value
         if (state is HumanToCatUiState.Result) {
-            synthesizer.play(state.intent)
+            playSoundSafely(state.intent)
         }
     }
 
     fun reset() {
+        speechToText.stopListening()
         _uiState.value = HumanToCatUiState.Idle
+    }
+
+    private fun playSoundSafely(intent: CatIntent) {
+        runCatching { synthesizer.play(intent) }
     }
 
     override fun onCleared() {

@@ -5,6 +5,7 @@ enum class CatIntent {
     PRAISE,
     SUMMON,
     SCOLD,
+    DISMISS,
     PLAY,
     GREETING,
     AFFECTION,
@@ -26,6 +27,9 @@ object CatIntentMapper {
         ),
         CatIntent.SCOLD to listOf(
             "get down", "cut it out", "don't", "stop", "bad", "off", "no",
+        ),
+        CatIntent.DISMISS to listOf(
+            "go on", "go away", "go there", "get going", "shoo", "scram", "leave",
         ),
         CatIntent.PLAY to listOf(
             "play", "toy", "chase", "fetch", "pounce", "laser", "string", "run",

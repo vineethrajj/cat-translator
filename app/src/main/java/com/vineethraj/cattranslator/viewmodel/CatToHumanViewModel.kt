@@ -9,6 +9,7 @@ import com.vineethraj.cattranslator.ml.CatSoundClassifier
 import com.vineethraj.cattranslator.mood.CatMood
 import com.vineethraj.cattranslator.mood.MoodEngine
 import com.vineethraj.cattranslator.mood.PhraseBank
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -70,8 +71,16 @@ class CatToHumanViewModel(application: Application) : AndroidViewModel(applicati
                     matchedLabel = outcome.matchedLabel,
                     confidencePercent = (outcome.confidence * 100).toInt(),
                 )
-            } catch (e: Exception) {
-                _uiState.value = CatToHumanUiState.Error(e.message ?: "Something went wrong")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: SecurityException) {
+                _uiState.value = CatToHumanUiState.Error(
+                    "Microphone permission was denied. Grant it in Settings and try again.",
+                )
+            } catch (e: Throwable) {
+                _uiState.value = CatToHumanUiState.Error(
+                    e.message ?: "Something went wrong while translating. Please try again.",
+                )
             }
         }
     }

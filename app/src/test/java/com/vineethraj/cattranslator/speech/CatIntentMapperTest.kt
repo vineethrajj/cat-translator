@@ -50,4 +50,21 @@ class CatIntentMapperTest {
         assertEquals(CatIntent.UNKNOWN, CatIntentMapper.map("it started to snow outside"))
         assertEquals(CatIntent.UNKNOWN, CatIntentMapper.map("nobody knows the answer"))
     }
+
+    @Test
+    fun `maps dismiss phrase`() {
+        assertEquals(CatIntent.DISMISS, CatIntentMapper.map("go on, shoo"))
+        assertEquals(CatIntent.DISMISS, CatIntentMapper.map("go away now"))
+    }
+
+    @Test
+    fun `quick phrase button labels map back to their own intent`() {
+        QuickPhrases.all.forEach { phrase ->
+            assertEquals(
+                "expected '${phrase.label}' to map to ${phrase.intent}",
+                phrase.intent,
+                CatIntentMapper.map(phrase.label),
+            )
+        }
+    }
 }
