@@ -1,14 +1,14 @@
 package com.vineethraj.cattranslator.ui.components
 
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.vineethraj.cattranslator.R
 
 @Composable
 fun MicButton(
@@ -22,7 +22,7 @@ fun MicButton(
         containerColor = if (isActive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
     ) {
         Icon(
-            imageVector = Icons.Filled.Mic,
+            painter = painterResource(R.drawable.ic_mic),
             contentDescription = if (isActive) "Listening" else "Start recording",
             modifier = Modifier.size(40.dp),
         )
