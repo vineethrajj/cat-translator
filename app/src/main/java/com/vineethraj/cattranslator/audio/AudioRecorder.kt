@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.os.Build
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 
 /** Thrown when the microphone could not be opened or produced no usable audio. */
 class MicrophoneUnavailableException(message: String) : Exception(message)
@@ -67,6 +69,44 @@ class AudioRecorder(private val sampleRateHz: Int = 16_000) {
         }
 
         return FloatArray(samplesRead) { i -> shortBuffer[i] / 32768f }
+    }
+
+    /**
+     * Reads audio continuously in small [chunkMs] pieces, calling [onChunk] with each one, until
+     * the calling coroutine is cancelled - that's the intended way to stop a listening session
+     * (e.g. `job.cancel()`). Unlike [record], there's no fixed end time.
+     */
+    @SuppressLint("MissingPermission")
+    suspend fun listenContinuously(chunkMs: Int = 20, onChunk: (FloatArray) -> Unit) {
+        val audioRecord = openAudioRecord()
+        val chunkSamples = (sampleRateHz.toLong() * chunkMs / 1000L).toInt().coerceAtLeast(1)
+        val shortBuffer = ShortArray(chunkSamples)
+        var startedRecording = false
+
+        try {
+            audioRecord.startRecording()
+            if (audioRecord.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+                throw MicrophoneUnavailableException(
+                    "The microphone could not start recording. It may be in use by another app.",
+                )
+            }
+            startedRecording = true
+
+            while (currentCoroutineContext().isActive) {
+                val n = audioRecord.read(shortBuffer, 0, chunkSamples)
+                if (n > 0) {
+                    onChunk(FloatArray(n) { i -> shortBuffer[i] / 32768f })
+                } else if (n < 0) {
+                    // A negative return is an AudioRecord error code, not "no data yet".
+                    break
+                }
+            }
+        } finally {
+            runCatching {
+                if (startedRecording) audioRecord.stop()
+            }
+            runCatching { audioRecord.release() }
+        }
     }
 
     private fun openAudioRecord(): AudioRecord {
