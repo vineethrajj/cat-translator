@@ -63,4 +63,21 @@ class AcousticFeaturesTest {
 
         assertEquals(3, features.pulseCount)
     }
+
+    @Test
+    fun `voiced duration reflects the sound, not the clip length`() {
+        // 0.4s tone inside a 3s mostly-silent clip: voicedSeconds should track the tone.
+        val burst = sineWave(freqHz = 500f, durationSeconds = 0.4f)
+        val silence = FloatArray((sampleRateHz * 2.6f).toInt())
+        val samples = silence.copyOfRange(0, silence.size / 2) + burst +
+            silence.copyOfRange(0, silence.size / 2)
+
+        val features = AcousticFeatureExtractor.extract(samples, sampleRateHz)
+
+        assertEquals(3.0f, features.durationSeconds, 0.05f)
+        assertTrue(
+            "expected voicedSeconds near 0.4 but got ${features.voicedSeconds}",
+            features.voicedSeconds in 0.3f..0.6f,
+        )
+    }
 }

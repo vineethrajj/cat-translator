@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -17,7 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -42,25 +43,10 @@ import com.vineethraj.cattranslator.ui.components.ResultCard
 import com.vineethraj.cattranslator.viewmodel.HumanToCatUiState
 import com.vineethraj.cattranslator.viewmodel.HumanToCatViewModel
 
-private fun CatIntent.emoji(): String = when (this) {
-    CatIntent.FOOD -> "🍽️"
-    CatIntent.PRAISE -> "👍"
-    CatIntent.SUMMON -> "📣"
-    CatIntent.SCOLD -> "⚠️"
-    CatIntent.DISMISS -> "🚪"
-    CatIntent.PLAY -> "🧶"
-    CatIntent.GREETING -> "👋"
-    CatIntent.AFFECTION -> "❤️"
-    CatIntent.UNKNOWN -> "❓"
-}
-
-private fun CatIntent.displayName(): String = name.lowercase()
-    .split('_')
-    .joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
-
 @Composable
 fun HumanToCatScreen(viewModel: HumanToCatViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsState()
+    val favorites by viewModel.favorites.collectAsState()
     val context = LocalContext.current
     var permissionDenied by remember { mutableStateOf(false) }
 
@@ -125,8 +111,18 @@ fun HumanToCatScreen(viewModel: HumanToCatViewModel = viewModel()) {
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "Long-press a phrase to pin it first.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                )
                 Spacer(modifier = Modifier.height(16.dp))
-                QuickPhraseGrid(onSelect = viewModel::selectQuickPhrase)
+                QuickPhraseGrid(
+                    favorites = favorites,
+                    onSelect = viewModel::selectQuickPhrase,
+                    onToggleFavorite = viewModel::toggleFavorite,
+                )
             }
 
             is HumanToCatUiState.Listening -> {
@@ -172,7 +168,11 @@ fun HumanToCatScreen(viewModel: HumanToCatViewModel = viewModel()) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                QuickPhraseGrid(onSelect = viewModel::selectQuickPhrase)
+                QuickPhraseGrid(
+                    favorites = favorites,
+                    onSelect = viewModel::selectQuickPhrase,
+                    onToggleFavorite = viewModel::toggleFavorite,
+                )
                 Spacer(modifier = Modifier.height(16.dp))
                 TextButton(onClick = { viewModel.reset() }) {
                     Text("Try the mic again", fontWeight = FontWeight.SemiBold)
@@ -182,17 +182,50 @@ fun HumanToCatScreen(viewModel: HumanToCatViewModel = viewModel()) {
     }
 }
 
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@OptIn(
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class,
+    androidx.compose.foundation.ExperimentalFoundationApi::class,
+)
 @Composable
-private fun QuickPhraseGrid(onSelect: (String, CatIntent) -> Unit) {
+private fun QuickPhraseGrid(
+    favorites: List<String>,
+    onSelect: (String, CatIntent) -> Unit,
+    onToggleFavorite: (String) -> Unit,
+) {
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        QuickPhrases.all.forEach { phrase ->
-            OutlinedButton(onClick = { onSelect(phrase.label, phrase.intent) }) {
-                Text("${phrase.intent.emoji()}  ${phrase.label}")
+        QuickPhrases.ordered(favorites).forEach { phrase ->
+            val isPinned = phrase.label in favorites
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = if (isPinned) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surface
+                },
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                ),
+                modifier = Modifier.combinedClickable(
+                    onClick = { onSelect(phrase.label, phrase.intent) },
+                    onLongClick = { onToggleFavorite(phrase.label) },
+                ),
+            ) {
+                Text(
+                    text = buildString {
+                        if (isPinned) append("⭐ ")
+                        append(phrase.intent.emoji())
+                        append("  ")
+                        append(phrase.label)
+                    },
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                )
             }
         }
     }

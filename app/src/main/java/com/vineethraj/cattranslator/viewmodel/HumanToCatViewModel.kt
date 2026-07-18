@@ -2,13 +2,20 @@ package com.vineethraj.cattranslator.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.vineethraj.cattranslator.data.HistoryEntry
+import com.vineethraj.cattranslator.data.Stores
+import com.vineethraj.cattranslator.data.TranslationDirection
 import com.vineethraj.cattranslator.speech.CatIntent
 import com.vineethraj.cattranslator.speech.CatIntentMapper
 import com.vineethraj.cattranslator.speech.SpeechToTextHelper
 import com.vineethraj.cattranslator.sound.MeowSynthesizer
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed interface HumanToCatUiState {
     data object Idle : HumanToCatUiState
@@ -21,9 +28,22 @@ class HumanToCatViewModel(application: Application) : AndroidViewModel(applicati
 
     private val speechToText = SpeechToTextHelper(application)
     private val synthesizer = MeowSynthesizer()
+    private val historyStore = Stores.history(application)
+    private val profileStore = Stores.profiles(application)
+    private val favoritesStore = Stores.favorites(application)
 
     private val _uiState = MutableStateFlow<HumanToCatUiState>(HumanToCatUiState.Idle)
     val uiState: StateFlow<HumanToCatUiState> = _uiState.asStateFlow()
+
+    private val _favorites = MutableStateFlow<List<String>>(emptyList())
+    /** Pinned quick-phrase labels, in pin order. */
+    val favorites: StateFlow<List<String>> = _favorites.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            _favorites.value = withContext(Dispatchers.IO) { favoritesStore.load() }
+        }
+    }
 
     fun isSpeechRecognitionAvailable(): Boolean = speechToText.isAvailable()
 
@@ -35,6 +55,7 @@ class HumanToCatViewModel(application: Application) : AndroidViewModel(applicati
                     val intent = CatIntentMapper.map(text)
                     _uiState.value = HumanToCatUiState.Result(text, intent)
                     playSoundSafely(intent)
+                    recordHistory(text, intent)
                 },
                 onError = { message ->
                     _uiState.value = HumanToCatUiState.Error(message)
@@ -55,6 +76,13 @@ class HumanToCatViewModel(application: Application) : AndroidViewModel(applicati
     fun selectQuickPhrase(label: String, intent: CatIntent) {
         _uiState.value = HumanToCatUiState.Result(label, intent)
         playSoundSafely(intent)
+        recordHistory(label, intent)
+    }
+
+    fun toggleFavorite(label: String) {
+        viewModelScope.launch {
+            _favorites.value = withContext(Dispatchers.IO) { favoritesStore.toggle(label) }
+        }
     }
 
     fun replaySound() {
@@ -67,6 +95,20 @@ class HumanToCatViewModel(application: Application) : AndroidViewModel(applicati
     fun reset() {
         speechToText.stopListening()
         _uiState.value = HumanToCatUiState.Idle
+    }
+
+    private fun recordHistory(text: String, intent: CatIntent) {
+        viewModelScope.launch(Dispatchers.IO) {
+            historyStore.append(
+                HistoryEntry(
+                    timestampMs = System.currentTimeMillis(),
+                    direction = TranslationDirection.HUMAN_TO_CAT,
+                    label = intent.name,
+                    text = text,
+                    catId = profileStore.load().activeId,
+                ),
+            )
+        }
     }
 
     private fun playSoundSafely(intent: CatIntent) {

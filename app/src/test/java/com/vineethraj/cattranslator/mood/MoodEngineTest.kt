@@ -8,12 +8,13 @@ import org.junit.Test
 class MoodEngineTest {
 
     private fun features(
-        durationSeconds: Float = 0.4f,
+        durationSeconds: Float = 3.0f,
+        voicedSeconds: Float = 0.4f,
         rmsEnergy: Float = 0.1f,
         zeroCrossingRate: Float = 0.1f,
         pitchHz: Float = 400f,
         pulseCount: Int = 1,
-    ) = AcousticFeatures(durationSeconds, rmsEnergy, zeroCrossingRate, pitchHz, pulseCount)
+    ) = AcousticFeatures(durationSeconds, voicedSeconds, rmsEnergy, zeroCrossingRate, pitchHz, pulseCount)
 
     @Test
     fun `purr maps to content`() {
@@ -43,19 +44,29 @@ class MoodEngineTest {
     }
 
     @Test
-    fun `long mid-pitch meow maps to greeting`() {
+    fun `long voiced mid-pitch meow maps to greeting`() {
         val result = MoodEngine.infer(
             listOf(SoundLabel("Meow", 0.5f)),
-            features(durationSeconds = 1.2f, pitchHz = 400f, pulseCount = 1),
+            features(voicedSeconds = 1.2f, pitchHz = 400f, pulseCount = 1),
         )
         assertEquals(CatMood.GREETING, result.mood)
+    }
+
+    @Test
+    fun `short meow in a long clip is NOT mistaken for greeting`() {
+        // The recorder always captures ~3s; a 0.3s meow inside it must not read as "long".
+        val result = MoodEngine.infer(
+            listOf(SoundLabel("Meow", 0.5f)),
+            features(durationSeconds = 3.0f, voicedSeconds = 0.3f, pitchHz = 400f, pulseCount = 1),
+        )
+        assertEquals(CatMood.PLAYFUL, result.mood)
     }
 
     @Test
     fun `high pitched short meow maps to wants attention`() {
         val result = MoodEngine.infer(
             listOf(SoundLabel("Meow", 0.5f)),
-            features(durationSeconds = 0.3f, pitchHz = 700f, pulseCount = 0),
+            features(voicedSeconds = 0.3f, pitchHz = 700f, pulseCount = 0),
         )
         assertEquals(CatMood.WANTS_ATTENTION, result.mood)
     }
@@ -64,7 +75,7 @@ class MoodEngineTest {
     fun `short low-pitch meow with a couple pulses maps to playful`() {
         val result = MoodEngine.infer(
             listOf(SoundLabel("Meow", 0.5f)),
-            features(durationSeconds = 0.3f, pitchHz = 300f, pulseCount = 2),
+            features(voicedSeconds = 0.3f, pitchHz = 300f, pulseCount = 2),
         )
         assertEquals(CatMood.PLAYFUL, result.mood)
     }

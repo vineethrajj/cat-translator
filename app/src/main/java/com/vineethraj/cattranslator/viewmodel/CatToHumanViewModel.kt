@@ -5,6 +5,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.vineethraj.cattranslator.audio.AcousticFeatureExtractor
 import com.vineethraj.cattranslator.audio.AudioRecorder
+import com.vineethraj.cattranslator.data.HistoryEntry
+import com.vineethraj.cattranslator.data.Stores
+import com.vineethraj.cattranslator.data.TranslationDirection
 import com.vineethraj.cattranslator.ml.CatSoundClassifier
 import com.vineethraj.cattranslator.mood.CatMood
 import com.vineethraj.cattranslator.mood.MoodEngine
@@ -29,6 +32,7 @@ sealed interface CatToHumanUiState {
         val phrase: String,
         val matchedLabel: String?,
         val confidencePercent: Int,
+        val catName: String? = null,
     ) : CatToHumanUiState
     data class Error(val message: String) : CatToHumanUiState
 }
@@ -38,6 +42,8 @@ class CatToHumanViewModel(application: Application) : AndroidViewModel(applicati
     private val audioRecorder = AudioRecorder(SAMPLE_RATE_HZ)
     private val classifierLazy = lazy { CatSoundClassifier(application) }
     private val classifier by classifierLazy
+    private val historyStore = Stores.history(application)
+    private val profileStore = Stores.profiles(application)
 
     private val _uiState = MutableStateFlow<CatToHumanUiState>(CatToHumanUiState.Idle)
     val uiState: StateFlow<CatToHumanUiState> = _uiState.asStateFlow()
@@ -65,12 +71,29 @@ class CatToHumanViewModel(application: Application) : AndroidViewModel(applicati
                     )
                 }
 
+                val activeCat = withContext(Dispatchers.IO) { profileStore.load().activeProfile }
+                val confidencePercent = (outcome.confidence * 100).toInt()
+
                 _uiState.value = CatToHumanUiState.Result(
                     mood = outcome.mood,
                     phrase = outcome.phrase,
                     matchedLabel = outcome.matchedLabel,
-                    confidencePercent = (outcome.confidence * 100).toInt(),
+                    confidencePercent = confidencePercent,
+                    catName = activeCat?.name,
                 )
+
+                withContext(Dispatchers.IO) {
+                    historyStore.append(
+                        HistoryEntry(
+                            timestampMs = System.currentTimeMillis(),
+                            direction = TranslationDirection.CAT_TO_HUMAN,
+                            label = outcome.mood.name,
+                            text = outcome.phrase,
+                            confidencePercent = confidencePercent,
+                            catId = activeCat?.id,
+                        ),
+                    )
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: SecurityException) {

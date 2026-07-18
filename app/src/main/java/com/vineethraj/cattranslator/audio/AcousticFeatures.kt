@@ -4,7 +4,10 @@ import kotlin.math.sqrt
 
 /** Acoustic properties of a recorded clip, used to layer mood/intent on top of a raw sound-type label. */
 data class AcousticFeatures(
+    /** Total clip length. With a fixed-length recorder this is ~constant - don't infer mood from it. */
     val durationSeconds: Float,
+    /** How long the sound was actually voiced (frames above an energy threshold). */
+    val voicedSeconds: Float,
     val rmsEnergy: Float,
     val zeroCrossingRate: Float,
     val pitchHz: Float,
@@ -13,16 +16,22 @@ data class AcousticFeatures(
 
 object AcousticFeatureExtractor {
 
+    private const val FRAME_SECONDS = 0.02
+    private const val PULSE_THRESHOLD_RATIO = 0.3f
+
     fun extract(samples: FloatArray, sampleRateHz: Int): AcousticFeatures {
         if (samples.isEmpty()) {
-            return AcousticFeatures(0f, 0f, 0f, 0f, 0)
+            return AcousticFeatures(0f, 0f, 0f, 0f, 0f, 0)
         }
+        val envelope = energyEnvelope(samples, sampleRateHz)
+        val (pulses, voicedFrames) = pulsesAndVoicedFrames(envelope)
         return AcousticFeatures(
             durationSeconds = samples.size / sampleRateHz.toFloat(),
+            voicedSeconds = (voicedFrames * FRAME_SECONDS).toFloat(),
             rmsEnergy = rms(samples),
             zeroCrossingRate = zeroCrossingRate(samples),
             pitchHz = estimatePitchHz(samples, sampleRateHz),
-            pulseCount = countPulses(samples, sampleRateHz),
+            pulseCount = pulses,
         )
     }
 
@@ -87,12 +96,10 @@ object AcousticFeatureExtractor {
         return samples.copyOfRange(bestStart, bestStart + windowSize)
     }
 
-    /** Counts distinct energy-envelope pulses above a relative threshold, approximating meow repetition count. */
-    private fun countPulses(samples: FloatArray, sampleRateHz: Int): Int {
-        val frameSize = (sampleRateHz * 0.02).toInt().coerceAtLeast(1)
+    /** Per-frame (~20ms) RMS energy envelope. */
+    private fun energyEnvelope(samples: FloatArray, sampleRateHz: Int): FloatArray {
+        val frameSize = (sampleRateHz * FRAME_SECONDS).toInt().coerceAtLeast(1)
         val frameCount = samples.size / frameSize
-        if (frameCount == 0) return 0
-
         val envelope = FloatArray(frameCount)
         for (f in 0 until frameCount) {
             var sumSq = 0.0
@@ -100,21 +107,33 @@ object AcousticFeatureExtractor {
             for (i in start until start + frameSize) sumSq += samples[i] * samples[i]
             envelope[f] = sqrt(sumSq / frameSize).toFloat()
         }
+        return envelope
+    }
 
+    /**
+     * Counts distinct pulses above a relative threshold (approximating meow repetitions) and how
+     * many frames were voiced at all - the latter gives the true vocalization length, independent
+     * of the fixed recording window.
+     */
+    private fun pulsesAndVoicedFrames(envelope: FloatArray): Pair<Int, Int> {
         val peakEnergy = envelope.maxOrNull() ?: 0f
-        if (peakEnergy <= 0f) return 0
-        val threshold = peakEnergy * 0.3f
+        if (peakEnergy <= 0f) return 0 to 0
+        val threshold = peakEnergy * PULSE_THRESHOLD_RATIO
 
         var pulses = 0
+        var voicedFrames = 0
         var above = false
         for (e in envelope) {
-            if (e >= threshold && !above) {
-                pulses++
-                above = true
-            } else if (e < threshold) {
+            if (e >= threshold) {
+                voicedFrames++
+                if (!above) {
+                    pulses++
+                    above = true
+                }
+            } else {
                 above = false
             }
         }
-        return pulses
+        return pulses to voicedFrames
     }
 }

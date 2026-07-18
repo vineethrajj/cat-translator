@@ -31,7 +31,9 @@ object MoodEngine {
 
     private fun inferMeowMood(features: AcousticFeatures): CatMood = when {
         features.pulseCount >= 3 -> CatMood.HUNGRY
-        features.durationSeconds > 1.0f && features.pitchHz in 250f..600f -> CatMood.GREETING
+        // voicedSeconds (not durationSeconds): the recorder always captures a fixed-length clip,
+        // so only the actually-voiced portion says anything about how long the meow was.
+        features.voicedSeconds > 1.0f && features.pitchHz in 250f..600f -> CatMood.GREETING
         features.pitchHz > 600f -> CatMood.WANTS_ATTENTION
         features.pulseCount in 1..2 -> CatMood.PLAYFUL
         else -> CatMood.WANTS_ATTENTION

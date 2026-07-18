@@ -31,27 +31,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.vineethraj.cattranslator.mood.CatMood
 import com.vineethraj.cattranslator.ui.components.ErrorCard
 import com.vineethraj.cattranslator.ui.components.MicButton
 import com.vineethraj.cattranslator.ui.components.ResultCard
 import com.vineethraj.cattranslator.viewmodel.CatToHumanUiState
 import com.vineethraj.cattranslator.viewmodel.CatToHumanViewModel
-
-private fun CatMood.emoji(): String = when (this) {
-    CatMood.CONTENT -> "😻"
-    CatMood.WANTS_ATTENTION -> "👀"
-    CatMood.HUNGRY -> "🍽️"
-    CatMood.GREETING -> "👋"
-    CatMood.PLAYFUL -> "🧶"
-    CatMood.ANNOYED -> "😿"
-    CatMood.DISTRESSED -> "🚨"
-    CatMood.UNKNOWN -> "❓"
-}
-
-private fun CatMood.displayName(): String = name.lowercase()
-    .split('_')
-    .joinToString(" ") { it.replaceFirstChar(Char::uppercase) }
 
 @Composable
 fun CatToHumanScreen(viewModel: CatToHumanViewModel = viewModel()) {
@@ -143,7 +127,8 @@ fun CatToHumanScreen(viewModel: CatToHumanViewModel = viewModel()) {
             is CatToHumanUiState.Result -> {
                 ResultCard(
                     emoji = state.mood.emoji(),
-                    title = state.mood.displayName(),
+                    title = state.catName?.let { "$it sounds: ${state.mood.displayName()}" }
+                        ?: state.mood.displayName(),
                     body = "“${state.phrase}”",
                     subtitle = state.matchedLabel?.let { "Heard: $it · ${state.confidencePercent}% confidence" }
                         ?: "Couldn't confidently identify a cat sound - try moving closer.",

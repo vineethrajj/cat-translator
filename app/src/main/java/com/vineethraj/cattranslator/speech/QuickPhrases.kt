@@ -14,4 +14,11 @@ object QuickPhrases {
         QuickPhrase("No!", CatIntent.SCOLD),
         QuickPhrase("Go on, shoo", CatIntent.DISMISS),
     )
+
+    /** Pinned phrases first (in the order they were pinned), then the rest in default order. */
+    fun ordered(pinnedLabels: List<String>): List<QuickPhrase> {
+        val byLabel = all.associateBy { it.label }
+        val pinned = pinnedLabels.mapNotNull { byLabel[it] }
+        return pinned + (all - pinned.toSet())
+    }
 }
