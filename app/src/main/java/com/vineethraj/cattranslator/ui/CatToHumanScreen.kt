@@ -23,6 +23,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -124,6 +125,18 @@ fun CatToHumanScreen(viewModel: CatToHumanViewModel = viewModel()) {
                 )
             }
 
+            is CatToHumanUiState.Analyzing -> {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.height(20.dp))
+                Text(
+                    "Didn't catch anything automatically - checking the last few seconds " +
+                        "more closely…",
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             is CatToHumanUiState.Stopped -> {
                 Text(
                     if (state.detections.isEmpty()) {
@@ -138,8 +151,13 @@ fun CatToHumanScreen(viewModel: CatToHumanViewModel = viewModel()) {
                 Spacer(modifier = Modifier.height(20.dp))
                 DetectionsArea(
                     detections = state.detections,
-                    emptyMessage = "No cat sounds were detected this time. Try moving closer " +
-                        "or reducing background noise.",
+                    emptyMessage = if (state.triedRetrospectiveScan) {
+                        "Still couldn't find a cat sound, even after a closer look at the " +
+                            "last few seconds. Try moving closer or reducing background noise."
+                    } else {
+                        "No cat sounds were detected this time. Try moving closer " +
+                            "or reducing background noise."
+                    },
                 )
                 Spacer(modifier = Modifier.height(24.dp))
                 Button(
